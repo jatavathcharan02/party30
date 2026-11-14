@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Party30 — 30-Player Party Games</title>
+  <style>
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #1a103d, #2b195c, #111827);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      padding: 16px;
+    }
+    .app {
+      width: 100%;
+      max-width: 540px;
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 20px;
+      padding: 20px;
+      height: fit-content;
+    }
+    h1, h2, h3 { margin-top: 0; text-align: center; }
+    .subtitle { text-align: center; color: #c4b5fd; margin-top: -8px; margin-bottom: 20px; font-size: 14px; }
+    input {
+      width: 100%;
+      padding: 13px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(0,0,0,0.25);
+      color: #fff;
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      color: #fff;
+      background: #7c3aed;
+      margin-bottom: 10px;
+      transition: transform 0.1s ease, opacity 0.2s;
+    }
+    button:active { transform: scale(0.98); }
+    button.secondary { background: #2563eb; }
+    button.truth { background: #0ea5e9; }
+    button.dare { background: #ec4899; }
+    button.danger { background: #dc2626; }
+    button.ghost { background: rgba(255,255,255,0.12); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .row { display: flex; gap: 10px; }
+    .row button { flex: 1; }
+    .room-badge {
+      text-align: center;
+      background: rgba(124, 58, 237, 0.35);
+      border: 1px dashed #a78bfa;
+      padding: 10px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      font-size: 18px;
+      letter-spacing: 2px;
+    }
+    .players-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 18px;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.14);
+      font-size: 13px;
+    }
+    .chip.dead { opacity: 0.4; text-decoration: line-through; }
+    .chip.me { border: 1px solid #34d399; }
+    .card {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 16px;
+      padding: 18px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .big-text { font-size: 22px; font-weight: 700; line-height: 1.4; }
+    .timer { font-size: 36px; font-weight: 800; color: #fbbf24; }
+    .error { color: #fca5a5; text-align: center; min-height: 20px; font-size: 14px; margin-bottom: 8px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>🎉 Party30</h1>
+    <p class="subtitle">Up to 30 Players • Live Multiplayer</p>
+
+    <div id="error" class="error"></div>
+
+    <!-- HOME SCREEN -->
+    <div id="screen-home">
+      <input id="player-name" placeholder="Enter your nickname" maxlength="18" />
+      <button id="btn-create">Create New Room</button>
+      <div style="text-align:center; margin: 10px 0; color:#9ca3af;">— OR —</div>
+      <input id="room-code-input" placeholder="Enter 5-letter Room Code" maxlength="5" style="text-transform:uppercase;" />
+      <button id="btn-join" class="secondary">Join Room</button>
+    </div>
+
+    <!-- LOBBY SCREEN -->
+    <div id="screen-lobby" class="hidden">
+      <div class="room-badge">Room Code: <strong id="display-code"></strong></div>
+      <h3 id="player-count">Players (0 / 30)</h3>
+      <div id="lobby-players" class="players-grid"></div>
+      <div id="host-controls" class="hidden">
+        <button id="btn-start-tod" class="dare">🎭 Start Truth or Dare</button>
+        <button id="btn-start-rps" class="secondary">✊✋✌️ Start 30-Player RPS</button>
+      </div>
+      <p id="waiting-host-msg" class="subtitle hidden">Waiting for host to pick a game...</p>
+    </div>
+
+    <!-- TRUTH OR DARE SCREEN -->
+    <div id="screen-tod" class="hidden">
+      <div class="card">
+        <div id="tod-turn-label" style="color:#a78bfa; margin-bottom:8px;"></div>
+        <div id="tod-prompt" class="big-text">Waiting for choice...</div>
+      </div>
+
+      <div id="tod-choice-buttons" class="row hidden">
+        <button id="btn-truth" class="truth">TRUTH</button>
+        <button id="btn-dare" class="dare">DARE</button>
+      </div>
+
+      <button id="btn-tod-next" class="hidden">Next Player ➡️</button>
+      <button id="btn-tod-lobby" class="ghost hidden">Back to Lobby</button>
+    </div>
+
+    <!-- ROCK PAPER SCISSORS SCREEN -->
+    <div id="screen-rps" class="hidden">
+      <div class="card">
+        <div id="rps-round-title" style="color:#a78bfa;">Round 1</div>
+        <div id="rps-timer" class="timer">15</div>
+        <div id="rps-status" style="margin-top:8px;">Pick your move!</div>
+      </div>
+
+      <div id="rps-buttons" class="row">
+        <button class="rps-move" data-move="rock">✊ Rock</button>
+        <button class="rps-move" data-move="paper">✋ Paper</button>
+        <button class="rps-move" data-move="scissors">✌️ Scissors</button>
+      </div>
+
+      <div id="rps-players" class="players-grid"></div>
+      <button id="btn-rps-next" class="hidden">Start Next Round ➡️</button>
+      <button id="btn-rps-lobby" class="ghost hidden">Back to Lobby</button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let myId = null;
+
+    const el = (id) => document.getElementById(id);
+    const icons = { rock: '✊ Rock', paper: '✋ Paper', scissors: '✌️ Scissors' };
+
+    socket.on('connect', () => { myId = socket.id; });
+
+    socket.on('error_msg', (msg) => {
+      el('error').textContent = msg;
+      setTimeout(() => (el('error').textContent = ''), 3500);
+    });
+
+    el('btn-create').onclick = () => {
+      socket.emit('create_room', { name: el('player-name').value });
+    };
+
+    el('btn-join').onclick = () => {
+      socket.emit('join_room', {
+        name: el('player-name').value,
+        code: el('room-code-input').value
+      });
+    };
+
+    el('btn-start-tod').onclick = () => socket.emit('start_game', { game: 'tod' });
+    el('btn-start-rps').onclick = () => socket.emit('start_game', { game: 'rps' });
+    el('btn-tod-lobby').onclick = () => socket.emit('back_to_lobby');
+    el('btn-rps-lobby').onclick = () => socket.emit('back_to_lobby');
+    el('btn-truth').onclick = () => socket.emit('tod_choose', { type: 'truth' });
+    el('btn-dare').onclick = () => socket.emit('tod_choose', { type: 'dare' });
+    el('btn-tod-next').onclick = () => socket.emit('tod_next');
+    el('btn-rps-next').onclick = () => socket.emit('rps_next_round');
+
+    document.querySelectorAll('.rps-move').forEach((btn) => {
+      btn.onclick = () => socket.emit('rps_pick', { choice: btn.dataset.move });
+    });
+
+    function showScreen(screenId) {
+      ['screen-home', 'screen-lobby', 'screen-tod', 'screen-rps'].forEach((id) => {
+        el(id).classList.toggle('hidden', id !== screenId);
+      });
+    }
+
+    function renderPlayers(containerId, players, hostId, showRpsStatus = false) {
+      const box = el(containerId);
+      box.innerHTML = '';
+      players.forEach((p) => {
+        const chip = document.createElement('div');
+        chip.className = 'chip' + (!p.alive ? ' dead' : '') + (p.id === myId ? ' me' : '');
+        let label = p.name;
+        if (p.id === hostId) label = '👑 ' + label;
+        if (showRpsStatus && p.alive) {
+          if (p.choice) label += ' ' + icons[p.choice].split(' ')[0];
+          else if (p.hasChosen) label += ' ✅';
+        }
+        chip.textContent = label;
+        box.appendChild(chip);
+      });
+    }
+
+    socket.on('room_update', (room) => {
+      const isHost = room.hostId === myId;
+      const me = room.players.find((p) => p.id === myId);
+
+      if (room.state === 'lobby') {
+        showScreen('screen-lobby');
+        el('display-code').textContent = room.code;
+        el('player-count').textContent = `Players (${room.players.length} / ${room.maxPlayers})`;
+        renderPlayers('lobby-players', room.players, room.hostId);
+        el('host-controls').classList.toggle('hidden', !isHost);
+        el('waiting-host-msg').classList.toggle('hidden', isHost);
+      }
+
+      else if (room.state === 'tod') {
+        showScreen('screen-tod');
+        const activePlayer = room.players.find((p) => p.id === room.tod.currentPlayerId);
+        const isMyTurn = room.tod.currentPlayerId === myId;
+
+        el('tod-turn-label').textContent = activePlayer
+          ? `Hot Seat: ${activePlayer.name}`
+          : 'Picking player...';
+
+        if (room.tod.prompt) {
+          el('tod-prompt').textContent = `[${room.tod.choiceType}] ${room.tod.prompt}`;
+          el('tod-choice-buttons').classList.add('hidden');
+          el('btn-tod-next').classList.toggle('hidden', !(isHost || isMyTurn));
+        } else {
+          el('tod-prompt').textContent = isMyTurn
+            ? 'Your turn! Pick Truth or Dare:'
+            : `Waiting for ${activePlayer ? activePlayer.name : 'player'} to choose...`;
+          el('tod-choice-buttons').classList.toggle('hidden', !isMyTurn);
+          el('btn-tod-next').classList.add('hidden');
+        }
+        el('btn-tod-lobby').classList.toggle('hidden', !isHost);
+      }
+
+      else if (room.state === 'rps') {
+        showScreen('screen-rps');
+        const rps = room.rps;
+        const aliveCount = room.players.filter((p) => p.alive).length;
+        el('rps-round-title').textContent = `Round ${rps.round} • ${aliveCount} Alive`;
+        renderPlayers('rps-players', room.players, room.hostId, true);
+
+        if (rps.phase === 'choosing') {
+          el('rps-timer').textContent = rps.timeLeft;
+          el('rps-buttons').classList.toggle('hidden', !me || !me.alive);
+          document.querySelectorAll('.rps-move').forEach((b) => {
+            b.disabled = Boolean(me && me.hasChosen);
+          });
+          el('rps-status').textContent = !me || !me.alive
+            ? 'You are eliminated! Watching live...'
+            : me.hasChosen
+              ? 'Move locked in! Waiting for others...'
+              : 'Pick Rock, Paper, or Scissors!';
+          el('btn-rps-next').classList.add('hidden');
+        } else {
+          el('rps-timer').textContent = icons[rps.botChoice] || '🤖';
+          el('rps-buttons').classList.add('hidden');
+          el('rps-status').textContent =
+            rps.phase === 'gameover'
+              ? `🏆 CHAMPION: ${rps.winnerName}!`
+              : `Bot picked ${icons[rps.botChoice]}! ${rps.message}`;
+          el('btn-rps-next').classList.toggle('hidden', !(isHost && rps.phase === 'result'));
+        }
+
+        el('btn-rps-lobby').classList.toggle('hidden', !isHost);
+      }
+    });
+  </script>
+</body>
+</html>
